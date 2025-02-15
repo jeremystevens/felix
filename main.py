@@ -1,7 +1,7 @@
-
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import List, Any, Dict
+import sys
 
 class TokenType(Enum):
     NUMBER = auto()
@@ -156,7 +156,7 @@ class Interpreter:
         while pos < len(tokens) and tokens[pos].type in {TokenType.PLUS, TokenType.MINUS, TokenType.MULTIPLY, TokenType.DIVIDE}:
             op = tokens[pos]
             right_val, new_pos = self.evaluate_expression(tokens, pos + 1)
-            
+
             if op.type == TokenType.PLUS:
                 left_val = left_val + right_val
             elif op.type == TokenType.MINUS:
@@ -165,7 +165,7 @@ class Interpreter:
                 left_val = left_val * right_val
             elif op.type == TokenType.DIVIDE:
                 left_val = left_val / right_val
-            
+
             pos = new_pos
 
         return left_val, pos
@@ -176,13 +176,13 @@ class Interpreter:
             return not result, pos
 
         left_val, pos = self.evaluate_math(tokens, start)
-        
+
         if pos >= len(tokens):
             return bool(left_val), pos
 
         if tokens[pos].type not in {TokenType.GREATER, TokenType.LESS, TokenType.AND, TokenType.OR}:
             return bool(left_val), pos
-            
+
         op = tokens[pos]
         right_val, new_pos = None, pos
 
@@ -190,7 +190,7 @@ class Interpreter:
             right_val, new_pos = self.evaluate_condition(tokens, pos + 1)
         else:
             right_val, new_pos = self.evaluate_math(tokens, pos + 1)
-        
+
         if op.type == TokenType.GREATER:
             return left_val > right_val, new_pos
         elif op.type == TokenType.LESS:
@@ -226,23 +226,45 @@ class Interpreter:
                 condition, pos = self.evaluate_condition(tokens, i + 1)
                 i = pos
                 if condition:
-                    continue
-                # Skip to next elif, else, or end of block
-                while i < len(tokens) and tokens[i].type not in {TokenType.IF, TokenType.ELIF, TokenType.ELSE, TokenType.WHILE}:
-                    i += 1
-                # If we hit an elif/else and the condition was false, continue processing
-                if i < len(tokens) and tokens[i].type in {TokenType.ELIF, TokenType.ELSE}:
-                    continue
-                # If we hit an elif/else and the condition was true, skip the entire else block
-                while i < len(tokens) and tokens[i].type in {TokenType.ELIF, TokenType.ELSE}:
-                    i += 1
+                    # Execute this block
+                    while i < len(tokens) and tokens[i].type not in {TokenType.IF, TokenType.ELIF, TokenType.ELSE, TokenType.WHILE}:
+                        token = tokens[i]
+                        if token.type == TokenType.PRINT:
+                            value, new_pos = self.evaluate_math(tokens, i + 1)
+                            print(value)
+                            i = new_pos
+                        elif token.type == TokenType.IDENTIFIER and i + 1 < len(tokens) and tokens[i + 1].type == TokenType.EQUALS:
+                            var_name = token.value
+                            value, new_pos = self.evaluate_math(tokens, i + 2)
+                            self.variables[var_name] = value
+                            i = new_pos
+                        else:
+                            i += 1
+                    # Skip remaining elif/else blocks
+                    while i < len(tokens) and tokens[i].type in {TokenType.ELIF, TokenType.ELSE}:
+                        i += 1
+                        while i < len(tokens) and tokens[i].type not in {TokenType.IF, TokenType.ELIF, TokenType.ELSE, TokenType.WHILE}:
+                            i += 1
+                else:
+                    # Skip this block and continue to next elif/else
                     while i < len(tokens) and tokens[i].type not in {TokenType.IF, TokenType.ELIF, TokenType.ELSE, TokenType.WHILE}:
                         i += 1
             elif token.type == TokenType.ELSE:
-                # Skip the else block if we get here (means previous if/elif was true)
+                # Execute the else block
                 i += 1
                 while i < len(tokens) and tokens[i].type not in {TokenType.IF, TokenType.WHILE}:
-                    i += 1
+                    token = tokens[i]
+                    if token.type == TokenType.PRINT:
+                        value, new_pos = self.evaluate_math(tokens, i + 1)
+                        print(value)
+                        i = new_pos
+                    elif token.type == TokenType.IDENTIFIER and i + 1 < len(tokens) and tokens[i + 1].type == TokenType.EQUALS:
+                        var_name = token.value
+                        value, new_pos = self.evaluate_math(tokens, i + 2)
+                        self.variables[var_name] = value
+                        i = new_pos
+                    else:
+                        i += 1
             elif token.type == TokenType.WHILE:
                 loop_start = i
                 while True:
@@ -277,26 +299,19 @@ class Interpreter:
                 i += 1
 
 def main():
-    source = """
-x = 5
-y = 3
-
-if x > 10
-    print "x is greater than 10"
-elif x > 5
-    print "x is greater than 5"
-elif x > 3
-    print "x is greater than 3"
-else
-    print "x is less than or equal to 3"
-
-count = 1
-while count < 5 and count > 0
-    print count
-    count = count + 1
-"""
-    interpreter = Interpreter()
-    interpreter.run(source)
+    if len(sys.argv) < 2:
+        print("Error: Please provide a file to execute")
+        return
+        
+    try:
+        with open(sys.argv[1], 'r') as file:
+            source = file.read()
+            interpreter = Interpreter()
+            interpreter.run(source)
+    except FileNotFoundError:
+        print(f"Error: File '{sys.argv[1]}' not found")
+    except Exception as e:
+        print(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     main()
