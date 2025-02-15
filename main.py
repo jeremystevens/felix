@@ -6,6 +6,7 @@ import sys
 class TokenType(Enum):
     NUMBER = auto()
     PLUS = auto()
+    INPUT = auto()
     MINUS = auto()
     MULTIPLY = auto()
     DIVIDE = auto()
@@ -72,7 +73,8 @@ class Lexer:
             'while': TokenType.WHILE,
             'and': TokenType.AND,
             'or': TokenType.OR,
-            'not': TokenType.NOT
+            'not': TokenType.NOT,
+            'input': TokenType.INPUT
         }
 
         return Token(keywords.get(result, TokenType.IDENTIFIER), result, self.line, self.column)
@@ -222,6 +224,17 @@ class Interpreter:
                 value, new_pos = self.evaluate_math(tokens, i + 1)
                 print(value)
                 i = new_pos
+            elif token.type == TokenType.INPUT:
+                if i + 1 < len(tokens) and tokens[i + 1].type == TokenType.STRING:
+                    prompt = tokens[i + 1].value
+                    print(prompt, end='')
+                    i += 2
+                else:
+                    i += 1
+                user_input = input()
+                if i < len(tokens) and tokens[i].type == TokenType.IDENTIFIER:
+                    self.variables[tokens[i].value] = user_input
+                    i += 1
             elif token.type in {TokenType.IF, TokenType.ELIF}:
                 condition, pos = self.evaluate_condition(tokens, i + 1)
                 i = pos
